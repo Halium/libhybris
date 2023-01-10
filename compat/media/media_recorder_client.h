@@ -122,6 +122,9 @@ public:
    virtual status_t setPrivacySensitive(bool privacySensitive);
    virtual status_t isPrivacySensitive(bool *privacySensitive) const;
 #endif
+#if ANDROID_VERSION_MAJOR>=12
+   virtual status_t getRtpDataUsage(uint64_t *bytes);
+#endif
 
 private:
     sp<BpMediaRecorderObserver> media_recorder_observer;

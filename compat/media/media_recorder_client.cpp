@@ -21,6 +21,9 @@
 
 #include "media_recorder_client.h"
 
+#if ANDROID_VERSION_MAJOR>=12
+#include <media/stagefright/foundation/AString.h>
+#endif
 #include <libmediaplayerservice/StagefrightRecorder.h>
 #include <binder/IServiceManager.h>
 
@@ -39,7 +42,14 @@ MediaRecorderClient::MediaRecorderClient()
 
     media_recorder_observer = new BpMediaRecorderObserver(service);
 
-#if ANDROID_VERSION_MAJOR>=6
+#if ANDROID_VERSION_MAJOR>=12
+    AttributionSourceState attributionSource;
+    attributionSource.uid = getuid();
+    attributionSource.pid = getpid();
+    attributionSource.token = sp<BBinder>::make();
+    attributionSource.packageName = "ubuntu";
+    recorder = new android::StagefrightRecorder(attributionSource);
+#elif ANDROID_VERSION_MAJOR>=6
     // TODO: do we need to get valid package here?
     const String16 opPackageName("ubuntu");
     recorder = new android::StagefrightRecorder(opPackageName);
@@ -508,6 +518,18 @@ status_t MediaRecorderClient::isPrivacySensitive(bool *privacySensitive) const
     ALOGV("isPrivacySensitive");
     if (recorder != NULL) {
         return recorder->isPrivacySensitive(privacySensitive);
+    }
+    return NO_INIT;
+}
+#endif
+
+#if ANDROID_VERSION_MAJOR>=12
+status_t MediaRecorderClient::getRtpDataUsage(uint64_t *bytes) {
+    REPORT_FUNCTION();
+    ALOGV("getRtpDataUsage");
+    Mutex::Autolock lock(recorder_lock);
+    if (recorder != NULL) {
+        return recorder->getRtpDataUsage(bytes);
     }
     return NO_INIT;
 }
