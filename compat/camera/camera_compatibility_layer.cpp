@@ -228,7 +228,11 @@ int android_camera_get_device_info(int32_t camera_id, int* facing, int* orientat
 
 	android::CameraInfo ci;
 
+#if ANDROID_VERSION_MAJOR >= 13
+	int rv = android::Camera::getCameraInfo(camera_id, false, &ci);
+#else
 	int rv = android::Camera::getCameraInfo(camera_id, &ci);
+#endif
 	if (rv != android::OK)
 		return rv;
 
@@ -246,7 +250,11 @@ CameraControl* android_camera_connect_to(CameraType camera_type, CameraControlLi
 
 	for (int32_t camera_id = 0; camera_id < camera_count; camera_id++) {
 		android::CameraInfo ci;
+#if ANDROID_VERSION_MAJOR >= 13
+		android::Camera::getCameraInfo(camera_id, false, &ci);
+#else
 		android::Camera::getCameraInfo(camera_id, &ci);
+#endif
 
 		if (ci.facing != camera_type)
 			continue;
@@ -264,7 +272,11 @@ CameraControl* android_camera_connect_by_id(int32_t camera_id, struct CameraCont
 
 	android::sp<CameraControl> cc = new CameraControl();
 	cc->listener = listener;
-#if ANDROID_VERSION_MAJOR>=12
+#if ANDROID_VERSION_MAJOR>=13
+        cc->camera = android::Camera::connect(camera_id, android::String16("hybris"),
+                                                                                  android::Camera::USE_CALLING_UID, android::Camera::USE_CALLING_PID,
+                                                                                  /* targetSdkVersion */__ANDROID_API_FUTURE__, false);
+#elif ANDROID_VERSION_MAJOR>=12
 	cc->camera = android::Camera::connect(camera_id, android::String16("hybris"),
 										  android::Camera::USE_CALLING_UID, android::Camera::USE_CALLING_PID,
 										  /* targetSdkVersion */__ANDROID_API_FUTURE__);
