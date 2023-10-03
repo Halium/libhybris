@@ -66,7 +66,6 @@ public:
     void setHardwareRendering(bool do_hardware_rendering);
     bool hardwareRendering();
 
-    unsigned int refcount;
 #if ANDROID_VERSION_MAJOR==4 && ANDROID_VERSION_MINOR<=2
     android::sp<android::SurfaceTexture> surface_texture;
 #else
