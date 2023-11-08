@@ -22,6 +22,8 @@
 #include <stddef.h>
 #include <unistd.h>
 
+#include <map>
+
 #include <media/stagefright/foundation/AString.h>
 #include <media/stagefright/foundation/ABuffer.h>
 
@@ -34,7 +36,6 @@ struct _MediaFormat : public android::RefBase
         width(0),
         height(0),
         max_input_size(0),
-        csd(NULL),
         stride(0),
         slice_height(0),
         color_format(0),
@@ -51,8 +52,7 @@ struct _MediaFormat : public android::RefBase
     int32_t width;
     int32_t height;
     int32_t max_input_size;
-    android::AString csd_key_name;
-    android::sp<android::ABuffer> csd;
+    std::map<android::AString, android::sp<android::ABuffer>> csd;
 
     int32_t stride;
     int32_t slice_height;
