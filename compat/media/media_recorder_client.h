@@ -111,7 +111,11 @@ public:
     virtual status_t getRoutedDeviceId(audio_port_handle_t* deviceId);
     virtual status_t enableAudioDeviceCallback(bool enabled);
     virtual status_t getActiveMicrophones(
+#if ANDROID_VERSION_MAJOR>=14
+                        std::vector<media::MicrophoneInfoFw>* activeMicrophones);
+#else
                         std::vector<media::MicrophoneInfo>* activeMicrophones);
+#endif
 #endif
 #if ANDROID_VERSION_MAJOR>=10
     virtual status_t setPreferredMicrophoneDirection(audio_microphone_direction_t direction);

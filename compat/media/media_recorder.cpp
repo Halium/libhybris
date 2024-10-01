@@ -415,7 +415,8 @@ a::status_t a::MediaRecorder::setVideoFrameRate(int frames_per_second)
 }
 
 a::status_t a::MediaRecorder::setParameters(const String8& params) {
-    ALOGV("setParameters(%s)", params.string());
+    ALOGV("setParameters(%s)", params.c_str());
+
     if (mMediaRecorder == NULL) {
         ALOGE("media recorder is not initialized yet");
         return INVALID_OPERATION;
@@ -432,7 +433,7 @@ a::status_t a::MediaRecorder::setParameters(const String8& params) {
 
     status_t ret = mMediaRecorder->setParameters(params);
     if (OK != ret) {
-        ALOGE("setParameters(%s) failed: %d", params.string(), ret);
+        ALOGE("setParameters(%s) failed: %d", params.c_str(), ret);
         // Do not change our current state to MEDIA_RECORDER_ERROR, failures
         // of the only currently supported parameters, "max-duration" and
         // "max-filesize" are _not_ fatal.

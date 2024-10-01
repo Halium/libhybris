@@ -454,7 +454,11 @@ status_t MediaRecorderClient::enableAudioDeviceCallback(bool enabled)
 }
 
 status_t MediaRecorderClient::getActiveMicrophones(
+#if ANDROID_VERSION_MAJOR>=14
+        std::vector<media::MicrophoneInfoFw>* activeMicrophones)
+#else
         std::vector<media::MicrophoneInfo>* activeMicrophones)
+#endif
 {
     REPORT_FUNCTION();
     ALOGV("getActiveMicrophones");
