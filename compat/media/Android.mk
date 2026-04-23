@@ -55,6 +55,7 @@ IS_ANDROID_5 := $(shell test $(ANDROID_VERSION_MAJOR) -ge 5 && echo true)
 IS_ANDROID_8 := $(shell test $(ANDROID_VERSION_MAJOR) -ge 8 && echo true)
 IS_ANDROID_10 := $(shell test $(ANDROID_VERSION_MAJOR) -ge 10 && echo true)
 IS_ANDROID_11 := $(shell test $(ANDROID_VERSION_MAJOR) -ge 11 && echo true)
+IS_ANDROID_12 := $(shell test $(ANDROID_VERSION_MAJOR) -ge 12 && echo true)
 
 ifeq ($(IS_ANDROID_5),true)
 LOCAL_C_INCLUDES += system/media/camera/include
@@ -76,15 +77,20 @@ LOCAL_HEADER_LIBRARIES += \
 	libmedia_headers
 endif
 
+ifneq ($(IS_ANDROID_12),true)
 ifdef TARGET_2ND_ARCH
 LOCAL_MULTILIB := both
-LOCAL_MODULE_STEM_32 := $(if $(filter false,$(BOARD_UBUNTU_PREFER_32_BIT)),$(LOCAL_MODULE)$(TARGET_2ND_ARCH_MODULE_SUFFIX),$(LOCAL_MODULE))
-LOCAL_MODULE_STEM_64 := $(if $(filter false,$(BOARD_UBUNTU_PREFER_32_BIT)),$(LOCAL_MODULE),$(LOCAL_MODULE)_64)
+LOCAL_MODULE_STEM_32 := $(LOCAL_MODULE)$(TARGET_2ND_ARCH_MODULE_SUFFIX)
+LOCAL_MODULE_STEM_64 := $(LOCAL_MODULE)
+endif
 endif
 
+ifneq ($(IS_ANDROID_12),true)
 ifeq ($(HYBRIS_MEDIA_32_BIT_ONLY),true)
 LOCAL_32_BIT_ONLY := true
 LOCAL_MULTILIB := 32
+LOCAL_MODULE_STEM_32 := $(LOCAL_MODULE)
+endif
 endif
 
 include $(BUILD_EXECUTABLE)
@@ -217,9 +223,12 @@ LOCAL_C_INCLUDES+= \
 	$(TOP)/$(MTK_PATH_SOURCE)/frameworks/av/include
 endif
 
+ifneq ($(IS_ANDROID_12),true)
 ifeq ($(HYBRIS_MEDIA_32_BIT_ONLY),true)
 LOCAL_32_BIT_ONLY := true
 LOCAL_MULTILIB := 32
+LOCAL_MODULE_STEM_32 := $(LOCAL_MODULE)
+endif
 endif
 
 include $(BUILD_SHARED_LIBRARY)
@@ -256,15 +265,20 @@ LOCAL_SHARED_LIBRARIES := \
 	libEGL \
 	libGLESv2
 
+ifneq ($(IS_ANDROID_12),true)
 ifdef TARGET_2ND_ARCH
 LOCAL_MULTILIB := both
-LOCAL_MODULE_STEM_32 := $(if $(filter false,$(BOARD_UBUNTU_PREFER_32_BIT)),$(LOCAL_MODULE)$(TARGET_2ND_ARCH_MODULE_SUFFIX),$(LOCAL_MODULE))
-LOCAL_MODULE_STEM_64 := $(if $(filter false,$(BOARD_UBUNTU_PREFER_32_BIT)),$(LOCAL_MODULE),$(LOCAL_MODULE)_64)
+LOCAL_MODULE_STEM_32 := $(LOCAL_MODULE)$(TARGET_2ND_ARCH_MODULE_SUFFIX)
+LOCAL_MODULE_STEM_64 := $(LOCAL_MODULE)
+endif
 endif
 
+ifneq ($(IS_ANDROID_12),true)
 ifeq ($(HYBRIS_MEDIA_32_BIT_ONLY),true)
 LOCAL_32_BIT_ONLY := true
 LOCAL_MULTILIB := 32
+LOCAL_MODULE_STEM_32 := $(LOCAL_MODULE)
+endif
 endif
 
 include $(BUILD_EXECUTABLE)
