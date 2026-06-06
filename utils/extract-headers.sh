@@ -254,6 +254,30 @@ check_header_exists system/core/libsync/include/ndk/sync.h && \
     extract_headers_to ndk \
         system/core/libsync/include/ndk
 
+check_header_exists frameworks/av/media/ndk/include/media/NdkMediaCodec.h && \
+    extract_headers_to media \
+        frameworks/av/media/ndk/include/media/NdkImage.h \
+        frameworks/av/media/ndk/include/media/NdkImageReader.h \
+        frameworks/av/media/ndk/include/media/NdkMediaCodec.h \
+        frameworks/av/media/ndk/include/media/NdkMediaCrypto.h \
+        frameworks/av/media/ndk/include/media/NdkMediaDataSource.h \
+        frameworks/av/media/ndk/include/media/NdkMediaDrm.h \
+        frameworks/av/media/ndk/include/media/NdkMediaError.h \
+        frameworks/av/media/ndk/include/media/NdkMediaExtractor.h \
+        frameworks/av/media/ndk/include/media/NdkMediaFormat.h \
+        frameworks/av/media/ndk/include/media/NdkMediaMuxer.h
+
+check_header_exists frameworks/av/camera/ndk/include/camera/NdkCameraDevice.h && \
+    extract_headers_to camera \
+        frameworks/av/camera/ndk/include/camera/NdkCameraCaptureSession.h \
+        frameworks/av/camera/ndk/include/camera/NdkCameraDevice.h \
+        frameworks/av/camera/ndk/include/camera/NdkCameraError.h \
+        frameworks/av/camera/ndk/include/camera/NdkCameraManager.h \
+        frameworks/av/camera/ndk/include/camera/NdkCameraMetadata.h \
+        frameworks/av/camera/ndk/include/camera/NdkCameraMetadataTags.h \
+        frameworks/av/camera/ndk/include/camera/NdkCameraWindowType.h \
+        frameworks/av/camera/ndk/include/camera/NdkCaptureRequest.h
+
 check_header_exists external/libnfc-nxp/inc/phNfcConfig.h && \
     extract_headers_to libnfc-nxp \
         external/libnfc-nxp/inc \
