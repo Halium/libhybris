@@ -356,17 +356,19 @@ int media_codec_configure(MediaCodecDelegate delegate, MediaFormat format, Surfa
     if (format_priv->max_input_size > 0)
         aformat->setInt32("max-input-size", format_priv->max_input_size);
 
-    if (format_priv->csd.get() != NULL) {
-        const size_t csd_size = format_priv->csd->size();
+    for (auto it = format_priv->csd.begin(); it != format_priv->csd.end(); it++) {
+        const AString key = it->first;
+        const sp<ABuffer> csd = it->second;
+        const size_t csd_size = csd->size();
 
         ALOGD("Adding csd (%zu bytes)", csd_size);
 
         sp<ABuffer> buffer = new ABuffer(csd_size);
-        memcpy(buffer->data(), format_priv->csd->data(), csd_size);
+        memcpy(buffer->data(), csd->data(), csd_size);
 
         buffer->meta()->setInt32("csd", true);
         buffer->meta()->setInt64("timeUs", 0);
-        aformat->setBuffer("csd-0", buffer);
+        aformat->setBuffer(key.c_str(), buffer);
     }
 
     ALOGD("Format: %s", aformat->debugString().c_str());
@@ -437,7 +439,6 @@ int media_codec_queue_csd(MediaCodecDelegate delegate, MediaFormat format)
 
     _MediaCodecDelegate *d = get_internal_delegate(delegate);
     _MediaFormat *format_priv = static_cast<_MediaFormat*>(format);
-    assert(format_priv->csd != NULL);
 
     status_t err = OK;
 
@@ -449,9 +450,9 @@ int media_codec_queue_csd(MediaCodecDelegate delegate, MediaFormat format)
     err = d->media_codec->getInputBuffers(&input_bufs[0]);
     CHECK_EQ(err, static_cast<status_t>(OK));
 
-    for (size_t i=0; i<2; ++i)
+    for (auto it = format_priv->csd.begin(); it != format_priv->csd.end(); it++)
     {
-        const sp<ABuffer> &srcBuffer = format_priv->csd;
+        const sp<ABuffer> &srcBuffer = it->second;
 
         size_t index = 0;
         err = d->media_codec->dequeueInputBuffer(&index, -1ll);

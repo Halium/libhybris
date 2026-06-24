@@ -108,8 +108,7 @@ void media_format_set_byte_buffer(MediaFormat format, const char *key, uint8_t *
     if (key == NULL || data == NULL || size == 0)
         return;
 
-    mf->csd_key_name = AString(key);
-    mf->csd = sp<ABuffer>(new ABuffer(data, size));
+    mf->csd[AString(key)] = sp<ABuffer>(new ABuffer(data, size));
 }
 
 const char* media_format_get_mime(MediaFormat format)
