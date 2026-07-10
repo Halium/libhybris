@@ -56,8 +56,16 @@ struct _SurfaceTextureClientHybris : public android::Surface
     void setReady(bool ready = true);
 
 public:
+#if ANDROID_VERSION_MAJOR >= 16
+    int dequeueBuffer(android::sp<android::GraphicBuffer>* buffer, int* fenceFd);
+    int queueBuffer(android::sp<android::GraphicBuffer>&& buffer, int fenceFd);
+    // Legacy API wrappers for compat layer callers
+    int dequeueBufferCompat(ANativeWindowBuffer** buffer, int* fenceFd);
+    int queueBufferCompat(ANativeWindowBuffer* buffer, int fenceFd);
+#else
     int dequeueBuffer(ANativeWindowBuffer** buffer, int* fenceFd);
     int queueBuffer(ANativeWindowBuffer* buffer, int fenceFd);
+#endif
 #if ANDROID_VERSION_MAJOR==4 && ANDROID_VERSION_MINOR<=2
     void setISurfaceTexture(const android::sp<android::ISurfaceTexture>& surface_texture);
 #else
@@ -79,6 +87,66 @@ private:
 
 namespace android {
 
+#if ANDROID_VERSION_MAJOR >= 16
+class _GLConsumerHybris : public RefBase
+{
+    class FrameAvailableListener : public GLConsumer::FrameAvailableListener
+    {
+    public:
+        FrameAvailableListener()
+            : frame_available_cb(NULL),
+              glc_wrapper(NULL),
+              context(NULL)
+        {
+        }
+
+        virtual void onFrameAvailable(const android::BufferItem& item)
+        {
+            if (frame_available_cb != NULL)
+                frame_available_cb(glc_wrapper, context);
+            else
+                ALOGE("Failed to call, frame_available_cb is NULL");
+        }
+
+        void setFrameAvailableCbHybris(FrameAvailableCbHybris cb, GLConsumerWrapperHybris wrapper, void *context)
+        {
+            frame_available_cb = cb;
+            glc_wrapper = wrapper;
+            this->context = context;
+        }
+
+    private:
+        FrameAvailableCbHybris frame_available_cb;
+        GLConsumerWrapperHybris glc_wrapper;
+        void *context;
+    };
+
+public:
+    _GLConsumerHybris(const sp<IGraphicBufferConsumer>& bq,
+            uint32_t tex, uint32_t textureTarget = GLConsumer::TEXTURE_EXTERNAL,
+            bool useFenceSync = true, bool isControlledByApp = false)
+    {
+        mConsumer = GLConsumer::create(bq, tex, textureTarget, useFenceSync, isControlledByApp);
+    }
+
+    void createFrameAvailableListener(FrameAvailableCbHybris cb, GLConsumerWrapperHybris wrapper, void *context)
+    {
+        frame_available_listener = new _GLConsumerHybris::FrameAvailableListener();
+        frame_available_listener->setFrameAvailableCbHybris(cb, wrapper, context);
+        mConsumer->setFrameAvailableListener(frame_available_listener);
+    }
+
+    sp<GLConsumer> consumer() const { return mConsumer; }
+
+    // Delegate common methods
+    void getTransformMatrix(float* matrix) { mConsumer->getTransformMatrix(static_cast<float*>(matrix)); }
+    status_t updateTexImage() { return mConsumer->updateTexImage(); }
+
+private:
+    sp<GLConsumer> mConsumer;
+    sp<_GLConsumerHybris::FrameAvailableListener> frame_available_listener;
+};
+#else
 class _GLConsumerHybris : public GLConsumer
 {
     class FrameAvailableListener : public GLConsumer::FrameAvailableListener
@@ -134,6 +202,7 @@ public:
 private:
     sp<_GLConsumerHybris::FrameAvailableListener> frame_available_listener;
 };
+#endif
 
 }; // namespace android
 

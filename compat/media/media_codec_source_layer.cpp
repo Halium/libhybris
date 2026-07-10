@@ -291,8 +291,13 @@ MediaNativeWindowHandle* media_codec_source_get_native_window_handle(MediaCodecS
     if (!d)
         return NULL;
 
+#if ANDROID_VERSION_MAJOR >= 16
+    if (!d->input_surface.get())
+        d->input_surface = new android::Surface(d->codec->getSurface());
+#else
     if (!d->input_surface.get())
         d->input_surface = new android::Surface(d->codec->getGraphicBufferProducer());
+#endif
 
     return static_cast<ANativeWindow*>(d->input_surface.get());
 }

@@ -25,6 +25,9 @@
 #include <media/stagefright/foundation/AString.h>
 #endif
 #include <libmediaplayerservice/StagefrightRecorder.h>
+#if ANDROID_VERSION_MAJOR>=16
+#include <media/AudioContainers.h>
+#endif
 #include <binder/IServiceManager.h>
 
 
@@ -37,10 +40,17 @@ MediaRecorderClient::MediaRecorderClient()
     REPORT_FUNCTION();
 
     sp<IServiceManager> service_manager = defaultServiceManager();
-    sp<IBinder> service = service_manager->getService(
+    sp<IBinder> service;
+    for (int i = 0; i < 10; i++) {
+        service = service_manager->getService(
         String16(IMediaRecorderObserver::exported_service_name()));
+        if (service != nullptr) break;
+        ALOGW("MediaRecorderObserver not found, retrying (%d/10)...", i + 1);
+        usleep(500000);
+    }
+    ALOGE_IF(service == nullptr, "MediaRecorderObserver not found after retries");
 
-    media_recorder_observer = new BpMediaRecorderObserver(service);
+    media_recorder_observer = service != nullptr ? new BpMediaRecorderObserver(service) : nullptr;
 
 #if ANDROID_VERSION_MAJOR>=12
     AttributionSourceState attributionSource;
@@ -300,7 +310,7 @@ status_t MediaRecorderClient::stop()
     return recorder->stop();
 }
 
-#ifdef BOARD_HAS_MEDIA_RECORDER_PAUSE
+#if ANDROID_VERSION_MAJOR >= 7 || defined(BOARD_HAS_MEDIA_RECORDER_PAUSE)
 status_t MediaRecorderClient::pause()
 {
     REPORT_FUNCTION();
@@ -314,7 +324,7 @@ status_t MediaRecorderClient::pause()
 }
 #endif
 
-#ifdef BOARD_HAS_MEDIA_RECORDER_RESUME
+#if ANDROID_VERSION_MAJOR >= 7 || defined(BOARD_HAS_MEDIA_RECORDER_RESUME)
 status_t MediaRecorderClient::resume()
 {
     REPORT_FUNCTION();
@@ -431,6 +441,18 @@ status_t MediaRecorderClient::setInputDevice(audio_port_handle_t deviceId)
     return NO_INIT;
 }
 
+#if ANDROID_VERSION_MAJOR >= 16
+status_t MediaRecorderClient::getRoutedDeviceIds(DeviceIdVector& deviceIds)
+{
+    REPORT_FUNCTION();
+    ALOGV("getRoutedDeviceIds");
+    Mutex::Autolock lock(recorder_lock);
+    if (recorder != NULL) {
+        return recorder->getRoutedDeviceIds(deviceIds);
+    }
+    return NO_INIT;
+}
+#else
 status_t MediaRecorderClient::getRoutedDeviceId(audio_port_handle_t* deviceId)
 {
     REPORT_FUNCTION();
@@ -441,6 +463,7 @@ status_t MediaRecorderClient::getRoutedDeviceId(audio_port_handle_t* deviceId)
     }
     return NO_INIT;
 }
+#endif
 
 status_t MediaRecorderClient::enableAudioDeviceCallback(bool enabled)
 {

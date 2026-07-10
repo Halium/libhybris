@@ -30,6 +30,11 @@
 #include <binder/ProcessState.h>
 #include <camera/Camera.h>
 #include <camera/CameraParameters.h>
+#if ANDROID_VERSION_MAJOR >= 16
+#include <android/content/res/CameraCompatibilityInfo.h>
+#include <android/content/AttributionSourceState.h>
+#include <binder/IBinder.h>
+#endif
 #if ANDROID_VERSION_MAJOR==4 && ANDROID_VERSION_MINOR<=2
 #include <gui/SurfaceTexture.h>
 #else
@@ -210,10 +215,26 @@ static void setParameters_resilient(CameraControl* control)
 	}
 }
 
+#if ANDROID_VERSION_MAJOR >= 16
+static android::AttributionSourceState getDefaultAttribution()
+{
+	android::AttributionSourceState attr;
+	attr.uid = android::hardware::ICameraService::USE_CALLING_UID;
+	attr.pid = android::hardware::ICameraService::USE_CALLING_PID;
+	attr.token = android::sp<android::BBinder>::make();
+	attr.packageName = "hybris";
+	return attr;
+}
+#endif
+
 int android_camera_get_number_of_devices()
 {
 	REPORT_FUNCTION();
+#if ANDROID_VERSION_MAJOR >= 16
+	return android::Camera::getNumberOfCameras(getDefaultAttribution(), /*devicePolicy*/ 0);
+#else
 	return android::Camera::getNumberOfCameras();
+#endif
 }
 
 int android_camera_get_device_info(int32_t camera_id, int* facing, int* orientation)
@@ -223,16 +244,22 @@ int android_camera_get_device_info(int32_t camera_id, int* facing, int* orientat
 	if (!facing || !orientation)
 		return android::BAD_VALUE;
 
+#if ANDROID_VERSION_MAJOR < 12
 	COMPILE_TIME_ASSERT_FUNCTION_SCOPE(CAMERA_FACING_BACK == static_cast<int>(BACK_FACING_CAMERA_TYPE));
 	COMPILE_TIME_ASSERT_FUNCTION_SCOPE(CAMERA_FACING_FRONT == static_cast<int>(FRONT_FACING_CAMERA_TYPE));
+#endif
 
 	android::CameraInfo ci;
 
-	int rv = android::Camera::getCameraInfo(camera_id 
-#if ANDROID_VERSION_MAJOR>=13
-						, false
+#if ANDROID_VERSION_MAJOR >= 16
+	android::content::res::CameraCompatibilityInfo compatInfo;
+	int rv = android::Camera::getCameraInfo(camera_id, compatInfo, getDefaultAttribution(),
+						/*devicePolicy*/ 0, &ci);
+#elif ANDROID_VERSION_MAJOR>=13
+	int rv = android::Camera::getCameraInfo(camera_id, false, &ci);
+#else
+	int rv = android::Camera::getCameraInfo(camera_id, &ci);
 #endif
-						, &ci);
 	if (rv != android::OK)
 		return rv;
 
@@ -246,17 +273,13 @@ CameraControl* android_camera_connect_to(CameraType camera_type, CameraControlLi
 {
 	REPORT_FUNCTION();
 
-	const int32_t camera_count = android::Camera::getNumberOfCameras();
+	const int32_t camera_count = android_camera_get_number_of_devices();
 
 	for (int32_t camera_id = 0; camera_id < camera_count; camera_id++) {
-		android::CameraInfo ci;
-		android::Camera::getCameraInfo(camera_id
-#if ANDROID_VERSION_MAJOR>=13
-						, false
-#endif
-						, &ci);
+		int facing = -1, orientation = 0;
+		android_camera_get_device_info(camera_id, &facing, &orientation);
 
-		if (ci.facing != camera_type)
+		if (facing != camera_type)
 			continue;
 
 		return android_camera_connect_by_id(camera_id, listener);
@@ -267,12 +290,17 @@ CameraControl* android_camera_connect_to(CameraType camera_type, CameraControlLi
 
 CameraControl* android_camera_connect_by_id(int32_t camera_id, struct CameraControlListener* listener)
 {
-	if (camera_id < 0 || camera_id >= android::Camera::getNumberOfCameras())
+	if (camera_id < 0 || camera_id >= android_camera_get_number_of_devices())
 		return NULL;
 
 	android::sp<CameraControl> cc = new CameraControl();
 	cc->listener = listener;
-#if ANDROID_VERSION_MAJOR>=12
+#if ANDROID_VERSION_MAJOR >= 16
+	android::content::res::CameraCompatibilityInfo compatInfo;
+	cc->camera = android::Camera::connect(camera_id, __ANDROID_API_FUTURE__,
+					      compatInfo, /*forceSlowJpegMode*/ false,
+					      getDefaultAttribution());
+#elif ANDROID_VERSION_MAJOR>=12
 	cc->camera = android::Camera::connect(camera_id,
 #if ANDROID_VERSION_MAJOR>=14
 					      "hybris",
@@ -787,26 +815,40 @@ void android_camera_set_preview_texture(CameraControl* control, int texture_id)
 		control->preview_bq = buffer_queue;
 #endif
 
-#if ANDROID_VERSION_MAJOR==4 && ANDROID_VERSION_MINOR<=2
+#if ANDROID_VERSION_MAJOR >= 16
+		control->preview_texture = android::GLConsumer::create(
+					consumer,
+					texture_id,
+					GL_TEXTURE_EXTERNAL_OES,
+					true,
+					is_controlled_by_app);
+#elif ANDROID_VERSION_MAJOR==4 && ANDROID_VERSION_MINOR<=2
 		control->preview_texture = android::sp<android::SurfaceTexture>(
 				new android::SurfaceTexture(
-#else
+					texture_id,
+					allow_synchronous_mode,
+					GL_TEXTURE_EXTERNAL_OES,
+					true,
+					buffer_queue));
+#elif ANDROID_VERSION_MAJOR>=5
 		control->preview_texture = android::sp<android::GLConsumer>(
 				new android::GLConsumer(
-#endif
-#if ANDROID_VERSION_MAJOR>=5
 					consumer,
 					texture_id,
 					GL_TEXTURE_EXTERNAL_OES,
 					true,
 					is_controlled_by_app));
 #elif ANDROID_VERSION_MAJOR==4 && ANDROID_VERSION_MINOR<=3
+		control->preview_texture = android::sp<android::GLConsumer>(
+				new android::GLConsumer(
 					texture_id,
 					allow_synchronous_mode,
 					GL_TEXTURE_EXTERNAL_OES,
 					true,
 					buffer_queue));
 #else
+		control->preview_texture = android::sp<android::GLConsumer>(
+				new android::GLConsumer(
 					buffer_queue,
 					texture_id,
 					GL_TEXTURE_EXTERNAL_OES,

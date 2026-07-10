@@ -139,6 +139,33 @@ void _SurfaceTextureClientHybris::setReady(bool ready)
     this->ready = ready;
 }
 
+#if ANDROID_VERSION_MAJOR >= 16
+int _SurfaceTextureClientHybris::dequeueBuffer(sp<GraphicBuffer>* buffer, int* fenceFd)
+{
+    return Surface::dequeueBuffer(buffer, fenceFd);
+}
+
+int _SurfaceTextureClientHybris::queueBuffer(sp<GraphicBuffer>&& buffer, int fenceFd)
+{
+    return Surface::queueBuffer(std::move(buffer), fenceFd);
+}
+
+int _SurfaceTextureClientHybris::dequeueBufferCompat(ANativeWindowBuffer** buffer, int* fenceFd)
+{
+    sp<GraphicBuffer> graphicBuffer;
+    int ret = Surface::dequeueBuffer(&graphicBuffer, fenceFd);
+    if (ret == OK && graphicBuffer != nullptr) {
+        *buffer = graphicBuffer.get();
+    }
+    return ret;
+}
+
+int _SurfaceTextureClientHybris::queueBufferCompat(ANativeWindowBuffer* buffer, int fenceFd)
+{
+    sp<GraphicBuffer> gb = static_cast<GraphicBuffer*>(buffer);
+    return Surface::queueBuffer(std::move(gb), fenceFd);
+}
+#else
 int _SurfaceTextureClientHybris::dequeueBuffer(ANativeWindowBuffer** buffer, int* fenceFd)
 {
 #if ANDROID_VERSION_MAJOR==4 && ANDROID_VERSION_MINOR<=2
@@ -156,6 +183,7 @@ int _SurfaceTextureClientHybris::queueBuffer(ANativeWindowBuffer* buffer, int fe
     return Surface::queueBuffer(buffer, fenceFd);
 #endif
 }
+#endif
 
 #if ANDROID_VERSION_MAJOR==4 && ANDROID_VERSION_MINOR<=2
 void _SurfaceTextureClientHybris::setISurfaceTexture(const sp<ISurfaceTexture>& surface_texture)
@@ -237,7 +265,9 @@ SurfaceTextureClientHybris surface_texture_client_create_by_id(unsigned int text
       stch->surface_texture.clear();
 
     const bool allow_synchronous_mode = true;
-#if ANDROID_VERSION_MAJOR>=5
+#if ANDROID_VERSION_MAJOR >= 16
+    stch->surface_texture = GLConsumer::create(consumer, texture_id, GL_TEXTURE_EXTERNAL_OES, true, true);
+#elif ANDROID_VERSION_MAJOR>=5
     stch->surface_texture = new GLConsumer(consumer, texture_id, GL_TEXTURE_EXTERNAL_OES, true, true);
 #elif ANDROID_VERSION_MAJOR==4 && ANDROID_VERSION_MINOR<=2
     stch->surface_texture = new SurfaceTexture(texture_id, allow_synchronous_mode, GL_TEXTURE_EXTERNAL_OES, true, buffer_queue);
@@ -287,7 +317,7 @@ GLConsumerWrapperHybris gl_consumer_create_by_id_with_igbc(unsigned int texture_
 
     IGBCWrapper *igbc = static_cast<IGBCWrapper*>(wrapper);
     // Use a fence guard and consumer is controlled by app:
-    sp<_GLConsumerHybris> gl_consumer = new _GLConsumerHybris(igbc->consumer, texture_id, GL_TEXTURE_EXTERNAL_OES, true, true);
+    sp<_GLConsumerHybris> gl_consumer = new _GLConsumerHybris(igbc->consumer, texture_id, GLConsumer::TEXTURE_EXTERNAL, true, true);
     GLConsumerWrapper *glc_wrapper = new GLConsumerWrapper(gl_consumer);
 
     return glc_wrapper;

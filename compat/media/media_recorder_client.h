@@ -25,6 +25,9 @@
 #include "media_recorder_observer.h"
 
 #include <media/IMediaRecorder.h>
+#if ANDROID_VERSION_MAJOR >= 16
+#include <media/AudioContainers.h>
+#endif
 
 namespace android {
 
@@ -108,7 +111,11 @@ public:
     virtual status_t setNextOutputFile(int fd);
     virtual status_t getMetrics(Parcel* reply);
     virtual status_t setInputDevice(audio_port_handle_t deviceId);
+#if ANDROID_VERSION_MAJOR >= 16
+    virtual status_t getRoutedDeviceIds(DeviceIdVector& deviceIds);
+#else
     virtual status_t getRoutedDeviceId(audio_port_handle_t* deviceId);
+#endif
     virtual status_t enableAudioDeviceCallback(bool enabled);
     virtual status_t getActiveMicrophones(
 #if ANDROID_VERSION_MAJOR>=14

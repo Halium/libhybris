@@ -519,30 +519,41 @@ int android_media_set_preview_texture(MediaPlayerWrapper *mp, int texture_id)
 
 	static const bool allow_synchronous_mode = true;
 	// Create a new GLConsumer/SurfaceTexture from the texture_id in synchronous mode (don't wait on all data in the buffer)
-#if ANDROID_VERSION_MAJOR>=5
+#if ANDROID_VERSION_MAJOR >= 16
+	mp->setVideoSurfaceTexture(producer,
+				android::GLConsumer::create(
+					consumer,
+					texture_id,
+					GL_TEXTURE_EXTERNAL_OES,
+					true,
+					false));
+#elif ANDROID_VERSION_MAJOR>=5
 	mp->setVideoSurfaceTexture(producer, android::sp<android::GLConsumer>(
 				new android::GLConsumer(
-#elif ANDROID_VERSION_MAJOR==4 && ANDROID_VERSION_MINOR<=2
-	mp->setVideoSurfaceTexture(android::sp<android::SurfaceTexture>(
-				new android::SurfaceTexture(
-#else
-	mp->setVideoSurfaceTexture(buffer_queue, android::sp<android::GLConsumer>(
-				new android::GLConsumer(
-#endif
-#if ANDROID_VERSION_MAJOR>=5
 					consumer,
 					texture_id,
 					GL_TEXTURE_EXTERNAL_OES,
 					true,
 					false)));
-
+#elif ANDROID_VERSION_MAJOR==4 && ANDROID_VERSION_MINOR<=2
+	mp->setVideoSurfaceTexture(android::sp<android::SurfaceTexture>(
+				new android::SurfaceTexture(
+					texture_id,
+					allow_synchronous_mode,
+					GL_TEXTURE_EXTERNAL_OES,
+					true,
+					buffer_queue)));
 #elif ANDROID_VERSION_MAJOR==4 && ANDROID_VERSION_MINOR<=3
+	mp->setVideoSurfaceTexture(buffer_queue, android::sp<android::GLConsumer>(
+				new android::GLConsumer(
 					texture_id,
 					allow_synchronous_mode,
 					GL_TEXTURE_EXTERNAL_OES,
 					true,
 					buffer_queue)));
 #else
+	mp->setVideoSurfaceTexture(buffer_queue, android::sp<android::GLConsumer>(
+				new android::GLConsumer(
 					buffer_queue,
 					texture_id,
 					GL_TEXTURE_EXTERNAL_OES,

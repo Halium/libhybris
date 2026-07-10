@@ -102,6 +102,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE       := micshm.sh
 LOCAL_MODULE_TAGS  := optional
 LOCAL_MODULE_CLASS := EXECUTABLES
+LOCAL_CHECK_ELF_FILES := false
 LOCAL_SRC_FILES    := micshm.sh
 include $(BUILD_PREBUILT)
 endif

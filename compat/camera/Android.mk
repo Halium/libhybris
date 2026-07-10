@@ -48,6 +48,13 @@ LOCAL_SHARED_LIBRARIES := \
 	libui \
 	libgui
 
+ifeq ($(shell test $(ANDROID_VERSION_MAJOR) -ge 16 && echo true),true)
+LOCAL_STATIC_LIBRARIES += \
+	framework-permission-aidl-cpp
+LOCAL_SHARED_LIBRARIES += \
+	libcameracompatbilityinfo
+endif
+
 ifneq ($(IS_ANDROID_12),true)
 ifeq ($(HYBRIS_MEDIA_32_BIT_ONLY),true)
 LOCAL_32_BIT_ONLY := true
