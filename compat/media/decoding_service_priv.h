@@ -78,6 +78,7 @@ public:
     virtual status_t getIGraphicBufferProducer(sp<IGraphicBufferProducer>* gbp) = 0;
     virtual status_t registerSession(const sp<IDecodingServiceSession>& session, uint32_t handle) = 0;
     virtual status_t unregisterSession() = 0;
+    virtual status_t setIGraphicBufferProducer(const sp<IGraphicBufferProducer>& gbp) = 0;
 };
 
 class BnDecodingService: public BnInterface<IDecodingService>
@@ -102,6 +103,7 @@ public:
     virtual status_t getIGraphicBufferProducer(sp<IGraphicBufferProducer>* gbp);
     virtual status_t registerSession(const sp<IDecodingServiceSession>& session, uint32_t handle);
     virtual status_t unregisterSession();
+    virtual status_t setIGraphicBufferProducer(const sp<IGraphicBufferProducer>& gbp);
 };
 
 class DecodingService : public BnDecodingService,
@@ -122,6 +124,7 @@ public:
 
     virtual status_t registerSession(const sp<IDecodingServiceSession>& session, uint32_t handle);
     virtual status_t unregisterSession();
+    virtual status_t setIGraphicBufferProducer(const sp<IGraphicBufferProducer>& gbp);
 
     /** Get notified when the Binder connection to the client dies **/
     virtual void binderDied(const wp<IBinder>& who);

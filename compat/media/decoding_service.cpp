@@ -51,6 +51,7 @@ enum {
     GET_IGRAPHICBUFFERPRODUCER,
     REGISTER_SESSION,
     UNREGISTER_SESSION,
+    SET_IGRAPHICBUFFERPRODUCER,
 };
 
 // ----------------------------------------------------------------------
@@ -64,7 +65,11 @@ status_t BnDecodingService::onTransact(
             CHECK_INTERFACE(IDecodingService, data, reply);
             sp<IGraphicBufferConsumer> gbc;
             status_t res = getIGraphicBufferConsumer(&gbc);
-#if ANDROID_VERSION_MAJOR>=6
+#if ANDROID_VERSION_MAJOR >= 16
+            // On A16, IGraphicBufferConsumer no longer extends IInterface,
+            // so it cannot be sent over binder. Write nullptr instead.
+            reply->writeStrongBinder(nullptr);
+#elif ANDROID_VERSION_MAJOR>=6
             reply->writeStrongBinder(IInterface::asBinder(gbc));
 #else
             reply->writeStrongBinder(gbc->asBinder());
@@ -102,6 +107,13 @@ status_t BnDecodingService::onTransact(
 
             return NO_ERROR;
         } break;
+        case SET_IGRAPHICBUFFERPRODUCER: {
+            CHECK_INTERFACE(IDecodingService, data, reply);
+            sp<IGraphicBufferProducer> gbp = interface_cast<IGraphicBufferProducer>(data.readStrongBinder());
+            status_t res = setIGraphicBufferProducer(gbp);
+            reply->writeInt32(res);
+            return NO_ERROR;
+        } break;
         default:
             return BBinder::onTransact(code, data, reply, flags);
     }
@@ -110,11 +122,18 @@ status_t BnDecodingService::onTransact(
 status_t BpDecodingService::getIGraphicBufferConsumer(sp<IGraphicBufferConsumer>* gbc)
 {
     ALOGD("Entering %s", __PRETTY_FUNCTION__);
+#if ANDROID_VERSION_MAJOR >= 16
+    // On A16, IGraphicBufferConsumer can't be sent over binder.
+    // The consumer is kept locally in the client process.
+    *gbc = nullptr;
+    return OK;
+#else
     Parcel data, reply;
     data.writeInterfaceToken(IDecodingService::getInterfaceDescriptor());
     remote()->transact(GET_IGRAPHICBUFFERCONSUMER, data, &reply);
     *gbc = interface_cast<IGraphicBufferConsumer>(reply.readStrongBinder());
     return reply.readInt32();
+#endif
 }
 
 status_t BpDecodingService::getIGraphicBufferProducer(sp<IGraphicBufferProducer>* gbp)
@@ -151,6 +170,16 @@ status_t BpDecodingService::unregisterSession()
     return NO_ERROR;
 }
 
+status_t BpDecodingService::setIGraphicBufferProducer(const sp<IGraphicBufferProducer>& gbp)
+{
+    ALOGD("Entering %s", __PRETTY_FUNCTION__);
+    Parcel data, reply;
+    data.writeInterfaceToken(IDecodingService::getInterfaceDescriptor());
+    data.writeStrongBinder(IInterface::asBinder(gbp));
+    remote()->transact(SET_IGRAPHICBUFFERPRODUCER, data, &reply);
+    return reply.readInt32();
+}
+
 sp<DecodingService> DecodingService::decoding_service = NULL;
 
 DecodingService::DecodingService()
@@ -172,7 +201,9 @@ void DecodingService::instantiate()
             String16(IDecodingService::exported_service_name()), service_instance());
     ALOGD("Added Binder service '%s' to ServiceManager", IDecodingService::exported_service_name());
 
+#if ANDROID_VERSION_MAJOR < 16
     service_instance()->createBufferQueue();
+#endif
 }
 
 sp<DecodingService>& DecodingService::service_instance()
@@ -246,7 +277,9 @@ status_t DecodingService::registerSession(const sp<IDecodingServiceSession>& ses
 
     // Create a new BufferQueue instance so that the next created client plays
     // video correctly
+#if ANDROID_VERSION_MAJOR < 16
     createBufferQueue();
+#endif
 
     return ret;
 }
@@ -296,6 +329,13 @@ void DecodingService::createBufferQueue()
 #endif
 }
 
+status_t DecodingService::setIGraphicBufferProducer(const sp<IGraphicBufferProducer>& gbp)
+{
+    ALOGD("Entering %s", __PRETTY_FUNCTION__);
+    producer = gbp;
+    return OK;
+}
+
 void DecodingService::binderDied(const wp<IBinder>& who)
 {
     ALOGD("Entering %s", __PRETTY_FUNCTION__);
@@ -332,6 +372,10 @@ sp<BpDecodingService>& DecodingClient::service_instance()
     // TODO: Add a mutex here
     if (decoding_service == NULL)
     {
+        // Ensure binder thread pool is running before first service lookup.
+        // On Android 16, getService() needs linkToDeath which requires threads.
+        ProcessState::self()->startThreadPool();
+
         ALOGD("Creating a new static BpDecodingService instance");
         sp<IServiceManager> service_manager = defaultServiceManager();
         sp<IBinder> service = service_manager->getService(

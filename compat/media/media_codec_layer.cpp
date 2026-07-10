@@ -54,6 +54,10 @@
 #endif
 
 #include <gui/IGraphicBufferProducer.h>
+#include <gui/IGraphicBufferConsumer.h>
+#if ANDROID_VERSION_MAJOR >= 16
+#include <gui/BufferQueue.h>
+#endif
 #include <binder/IServiceManager.h>
 
 #include <utils/Vector.h>
@@ -70,6 +74,11 @@
 #define REPORT_FUNCTION() ALOGV("%s \n", __PRETTY_FUNCTION__);
 
 using namespace android;
+
+#if ANDROID_VERSION_MAJOR >= 16
+static sp<IGraphicBufferConsumer> s_local_consumer;
+static sp<IGraphicBufferProducer> s_local_producer;
+#endif
 
 struct _MediaCodecDelegate : public AHandler
 {
@@ -161,10 +170,26 @@ IGBCWrapperHybris decoding_service_get_igraphicbufferconsumer()
 {
     REPORT_FUNCTION();
 
+    // Ensure binder thread pool is running in the calling process.
+    // This function is called from client apps (e.g. media player) that
+    // need binder threads for IAllocator and BufferQueue callbacks.
+    ProcessState::self()->startThreadPool();
+
+#if ANDROID_VERSION_MAJOR >= 16
+    // On A16, IGraphicBufferConsumer no longer extends IInterface,
+    // so it can't be sent over binder. Return the locally created consumer.
+    if (s_local_consumer == nullptr) {
+        ALOGE("No local consumer available - was decoding_service_create_session called?");
+        return nullptr;
+    }
+    IGBCWrapper *wrapper = new IGBCWrapper(s_local_consumer);
+    return wrapper;
+#else
     sp<IGraphicBufferConsumer> consumer;
     decoding_client_instance().getIGraphicBufferConsumer(&consumer);
     IGBCWrapper *wrapper = new IGBCWrapper(consumer);
     return wrapper;
+#endif
 }
 
 IGBPWrapperHybris decoding_service_get_igraphicbufferproducer()
@@ -186,6 +211,9 @@ DSSessionWrapperHybris decoding_service_create_session(uint32_t handle)
 {
     REPORT_FUNCTION();
 
+    // Ensure binder thread pool is running before service lookup
+    ProcessState::self()->startThreadPool();
+
     sp<IServiceManager> service_manager = defaultServiceManager();
     sp<IBinder> service = service_manager->getService(
             String16(IDecodingService::exported_service_name()));
@@ -194,6 +222,19 @@ DSSessionWrapperHybris decoding_service_create_session(uint32_t handle)
     sp<BnDecodingServiceSession> session(new BnDecodingServiceSession());
     // This new session will destroy and replace any existing session
     DecodingClient::service_instance()->registerSession(session, handle);
+
+#if ANDROID_VERSION_MAJOR >= 16
+    // On A16, IGraphicBufferConsumer no longer extends IInterface and can't
+    // be sent over binder. Create the BufferQueue locally in the client process,
+    // keep the consumer here, and send the producer to the server.
+    {
+        BufferQueue::createBufferQueue(&s_local_producer, &s_local_consumer);
+        s_local_producer->setMaxDequeuedBufferCount(5);
+        // Send the producer to the server via binder
+        DecodingClient::service_instance()->setIGraphicBufferProducer(s_local_producer);
+    }
+#endif
+
     DSSessionWrapper *wrapper(new DSSessionWrapper(session));
 
     return wrapper;
