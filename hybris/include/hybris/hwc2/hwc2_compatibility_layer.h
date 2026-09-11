@@ -18,6 +18,7 @@
 #define HWC2_COMPATIBILITY_LAYER_H_
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <unistd.h>
 
@@ -87,6 +88,12 @@ extern "C" {
 
     HWC2DisplayConfig* hwc2_compat_display_get_active_config(
                                 hwc2_compat_display_t* display);
+    size_t hwc2_compat_display_get_config_count(hwc2_compat_display_t* display);
+    hwc2_error_t hwc2_compat_display_get_config(hwc2_compat_display_t* display,
+                                                size_t index,
+                                                HWC2DisplayConfig* config);
+    hwc2_error_t hwc2_compat_display_set_active_config(hwc2_compat_display_t* display,
+                                                       hwc2_config_t configId);
 
     hwc2_error_t hwc2_compat_display_accept_changes(hwc2_compat_display_t* display);
     hwc2_compat_layer_t* hwc2_compat_display_create_layer(hwc2_compat_display_t*

@@ -177,6 +177,49 @@ HWC2DisplayConfig* hwc2_compat_display_get_active_config(
     return nullptr;
 }
 
+size_t hwc2_compat_display_get_config_count(hwc2_compat_display_t* display)
+{
+    if (!display || !display->self)
+        return 0;
+    return display->self->getConfigs().size();
+}
+
+hwc2_error_t hwc2_compat_display_get_config(hwc2_compat_display_t* display,
+                                             size_t index,
+                                             HWC2DisplayConfig* config)
+{
+    if (!display || !display->self || !config)
+        return HWC2_ERROR_BAD_PARAMETER;
+
+    auto configs = display->self->getConfigs();
+    if (index >= configs.size())
+        return HWC2_ERROR_BAD_CONFIG;
+
+    const auto& source = configs[index];
+    config->id = source->getId();
+    config->display = source->getDisplayId();
+    config->width = source->getWidth();
+    config->height = source->getHeight();
+    config->vsyncPeriod = source->getVsyncPeriod();
+    config->dpiX = source->getDpiX();
+    config->dpiY = source->getDpiY();
+    return HWC2_ERROR_NONE;
+}
+
+hwc2_error_t hwc2_compat_display_set_active_config(hwc2_compat_display_t* display,
+                                                    hwc2_config_t configId)
+{
+    if (!display || !display->self)
+        return HWC2_ERROR_BAD_DISPLAY;
+
+    auto configs = display->self->getConfigs();
+    for (const auto& config : configs) {
+        if (config->getId() == configId)
+            return static_cast<hwc2_error_t>(display->self->setActiveConfig(config));
+    }
+    return HWC2_ERROR_BAD_CONFIG;
+}
+
 hwc2_error_t hwc2_compat_display_accept_changes(hwc2_compat_display_t* display)
 {
     HWC2::Error error = display->self->acceptChanges();
